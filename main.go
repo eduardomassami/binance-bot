@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	binance_connector "github.com/binance/binance-connector-go"
 	"github.com/eduardomassami/binance-bot/config"
@@ -18,33 +18,69 @@ func main() {
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
+  
+  client := binance_connector.NewClient(os.Getenv("API_KEY"), os.Getenv("SECRET_KEY"))
+  client.BaseURL = "https://testnet.binance.vision/api"
 
-	apiKey := os.Getenv("API_KEY")
-	secretKey := os.Getenv("SECRET_KEY")
-
-	logger.Debugf("apiKey: %s and secretKey: %s", apiKey, secretKey)
-
-	// ----------------------------------------------------------------------------------------------------------------------
-
-	// Initialise Websocket API Client
-	client := binance_connector.NewWebsocketAPIClient(apiKey, secretKey)
-	// Connect to Websocket API
-	err = client.Connect()
+  err = client.NewPingService().Do(context.Background())
 	if err != nil {
-		logger.Errorf("Error connecting: %v", err)
-		return
-	}
-	defer client.Close()
-
-	// Send request to Websocket API
-	response, err := client.NewAccountOCOHistoryService().Do(context.Background())
-	if err != nil {
-		logger.Errorf("Error send request: %v", err)
-		return
+		log.Fatalf("Erro ao conectar na Binance: %v", err)
 	}
 
-	// Print the response
-	fmt.Println(binance_connector.PrettyPrint(response))
+	logger.Debug("Conexão bem-sucedida")
 
-	client.WaitForCloseSignal()
+  getMarketPrice(client, "BTCUSDT")
+  simpleTrade(client, "BTCUSDT", 30000.0, 35000.0)
+}
+
+func getMarketPrice(client *binance_connector.Client, symbol string) {
+	logger := config.GetLogger("main")
+	price, err := client.NewAvgPriceService().Symbol(symbol).Do(context.Background())
+	if err != nil {
+		log.Fatalf("Erro ao obter preço do mercado: %v", err)
+	}
+	logger.Debugf("Preço médio de %s: %s", symbol, price.Price)
+}
+
+func buyOrder(client *binance_connector.Client, symbol string, quantity float64) {
+	logger := config.GetLogger("main")
+	order, err := client.NewCreateOrderService().
+		Symbol(symbol).
+		Side("Buy").
+		Type("Market").
+		Quantity(quantity).
+		Do(context.Background())
+	if err != nil {
+		log.Fatalf("Erro ao realizar compra: %v", err)
+	}
+  logger.Debugf("Ordem de compra realizada: %v\n", order)
+}
+
+func sellOrder(client *binance_connector.Client, symbol string, quantity float64) {
+	logger := config.GetLogger("main")
+	order, err := client.NewCreateOrderService().
+		Symbol(symbol).
+		Side("Sell").
+		Type("Market").
+		Quantity(quantity).
+		Do(context.Background())
+	if err != nil {
+		log.Fatalf("Erro ao realizar venda: %v", err)
+	}
+	logger.Debugf("Ordem de venda realizada: %v\n", order)
+}
+
+func simpleTrade(client *binance_connector.Client, symbol string, buyThreshold float64, sellThreshold float64) {
+	logger := config.GetLogger("main")
+	price, _ := client.NewAvgPriceService().Symbol(symbol).Do(context.Background())
+
+	currentPrice, _ := strconv.ParseFloat(price.Price, 64)
+
+	if currentPrice < buyThreshold {
+		buyOrder(client, symbol, 0.001)
+	} else if currentPrice > sellThreshold {
+		sellOrder(client, symbol, 0.001)
+	} else {
+		logger.Debug("Nenhuma ação necessária.")
+	}
 }
