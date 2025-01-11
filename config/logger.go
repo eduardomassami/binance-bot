@@ -15,7 +15,13 @@ type Logger struct {
 }
 
 func NewLogger(p string) *Logger {
-	writer := io.Writer(os.Stdout)
+	logFile, err := os.OpenFile("trade.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatalf("Erro ao abrir o arquivo de log: %v", err)
+	}
+	defer logFile.Close()
+
+	writer := io.MultiWriter(os.Stdout, logFile)
 	logger := log.New(writer, p, log.Ldate|log.Ltime)
 
 	return &Logger{

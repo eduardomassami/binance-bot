@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	binance_connector "github.com/binance/binance-connector-go"
 	"github.com/eduardomassami/binance-bot/config"
@@ -18,19 +19,24 @@ func main() {
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
-  
-  client := binance_connector.NewClient(os.Getenv("API_KEY"), os.Getenv("SECRET_KEY"))
-  client.BaseURL = "https://testnet.binance.vision/api"
 
-  err = client.NewPingService().Do(context.Background())
+	client := binance_connector.NewClient(os.Getenv("API_KEY"), os.Getenv("SECRET_KEY"), "https://testnet.binance.vision")
+
+	err = client.NewPingService().Do(context.Background())
 	if err != nil {
 		log.Fatalf("Erro ao conectar na Binance: %v", err)
 	}
 
 	logger.Debug("Conexão bem-sucedida")
 
-  getMarketPrice(client, "BTCUSDT")
-  simpleTrade(client, "BTCUSDT", 30000.0, 35000.0)
+	ticker := time.NewTicker(10 * time.Second)
+	for {
+		select {
+		case <-ticker.C:
+			getMarketPrice(client, "BTCUSDT")
+			simpleTrade(client, "BTCUSDT", 30000.0, 35000.0)
+		}
+	}
 }
 
 func getMarketPrice(client *binance_connector.Client, symbol string) {
@@ -46,22 +52,22 @@ func buyOrder(client *binance_connector.Client, symbol string, quantity float64)
 	logger := config.GetLogger("main")
 	order, err := client.NewCreateOrderService().
 		Symbol(symbol).
-		Side("Buy").
-		Type("Market").
+		Side("BUY").
+		Type("MARKET").
 		Quantity(quantity).
 		Do(context.Background())
 	if err != nil {
 		log.Fatalf("Erro ao realizar compra: %v", err)
 	}
-  logger.Debugf("Ordem de compra realizada: %v\n", order)
+	logger.Debugf("Ordem de compra realizada: %v\n", order)
 }
 
 func sellOrder(client *binance_connector.Client, symbol string, quantity float64) {
 	logger := config.GetLogger("main")
 	order, err := client.NewCreateOrderService().
 		Symbol(symbol).
-		Side("Sell").
-		Type("Market").
+		Side("SELL").
+		Type("MARKET").
 		Quantity(quantity).
 		Do(context.Background())
 	if err != nil {
