@@ -19,7 +19,6 @@ func NewLogger(p string) *Logger {
 	if err != nil {
 		log.Fatalf("Erro ao abrir o arquivo de log: %v", err)
 	}
-	defer logFile.Close()
 
 	writer := io.MultiWriter(os.Stdout, logFile)
 	logger := log.New(writer, p, log.Ldate|log.Ltime)
@@ -30,6 +29,12 @@ func NewLogger(p string) *Logger {
 		warning: log.New(writer, "WARNING: ", logger.Flags()),
 		err:     log.New(writer, "ERROR: ", logger.Flags()),
 		writer:  writer,
+	}
+}
+
+func (l *Logger) Close() {
+	if file, ok := l.writer.(*os.File); ok {
+		file.Close()
 	}
 }
 

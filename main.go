@@ -14,6 +14,7 @@ import (
 
 func main() {
 	logger := config.GetLogger("main")
+	defer logger.Close()
 
 	err := godotenv.Load()
 	if err != nil {
